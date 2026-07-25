@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    // the links below are for the map and street view libraries we use, leaflet and mapillary js
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css" rel="stylesheet" />
+    
+    <style>
+        
+        /* body style removes default margin and hides scrollbars, also sets a dark background and a clean sans-serif font */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: sans-serif; 
+        }
+
+
+        /* dashboard overlay used for endgame and round result modal */
+        .dashboard-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: black;
+            z-index: 5000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* modal map to show players guess */
+        #modalMap {
+            flex-grow: 1; 
+            width: 100%;
+        }
+
+        /* dashboard header and footer are the top and bottom of model, header shows score and footer shows distance and points earned */
+        .dashboard-header, .dashboard-footer {
+            background: #0f0f1b;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /*dashboard footer style */
+        .dashboard-footer {
+            height: 140px;
+            justify-content: space-around; /* space out the distance and points sections */
+        }
+
+        /* score pill in the dashboard header */
+        .score-pill { 
+            background: transparent; 
+            color:#000;
+            padding: 10px 25px; 
+            border-radius: 8px; 
+            border: 2px solid #358fee; 
+            color: white; 
+            font-weight: bold;
+            font-size: 32px;
+        }
+
+
+        /* neon text styles for distance and points in the dashboard footer */
+        .neon-blue { 
+            color: #358fee; 
+            text-shadow: 0 0 15px #358fee4d;
+            font-size: 45px; 
+            margin: 0; 
+        }
+
+
+        .neon-yellow { color: #ffcc00; 
+            text-shadow: 0 0 15px #ffcc004d; 
+            font-size: 45px; 
+            margin: 0; 
+        }
+
+
+        /* stat group used for distance and points sections in the dashboard footer */
+        .stat-group { 
+            text-align: center; 
+        }
+
+        /* style for the labels under distance and points in the dashboard footer */
+        .stat-group p { color: #888; 
+            margin-top: 5px; 
+            letter-spacing: 2px; 
+            font-size: 12px; 
+        }
+
+        /* next button style */
+        .next-btn {
+            background: #50ff6d;
+            color: #000;
+            padding: 15px 100px;
+            font-size: 24px;
+            font-weight: 900;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 20px #50ff6d88;
+            transition: 0.2s;
+        }
+
+        /* next button hover effect */
+        .next-btn:hover { 
+            transform: scale(1.05); 
+            background: #7cff93; 
+        }
+
+        /*home button style, used on endgame modal to return to main menu */
+        .homeBtn {
+            background: #315de1;
+            color: #000;
+            padding: 15px 100px;
+            font-size: 24px;
+            font-weight: 900;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 20px #3e68e688;
+            transition: 0.2s;
+        }
+        
+        /* home button hover effect */
+        .homeBtn:hover { 
+            transform: scale(1.05); 
+            background: #266db3; 
+        }
+        
+        
+
+        /* mly is the mapillary street container. fills the screen and is behind everything */
+        #mly {
+             position: absolute; 
+             top: 0; 
+             left: 0; 
+             width: 100vw; 
+             height: 100vh; 
+             z-index: 0; 
+            }
+
+        /* Container for the map and guess button - handles the popout*/
+        #mapGuess {
+            position: fixed;
+            bottom: 20px; 
+            left: 20px;
+            height: 500px; /* Base height when not hovering */
+            width: 700px; /* This is the base width when not hovering */
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            
+            /* Anchor growth to the bottom right so it stretches to the center */
+            transform-origin: bottom left;
+            transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease;
+        }
+
+        /* When hovering anywhere on the map or button, the whole unit scales up */
+        #mapGuess:hover {
+            transform: scale(1.6); /* Adjust this to make it even larger if desired */
+            box-shadow: -15px -15px 40px rgba(0,0,0,0.6);
+        }
+
+        /* Map fills the top of the container */
+        #map {
+            flex-grow: 1;
+            width: 100%; 
+            height: 250px; /* Base height when not hovering */
+            border: 3px solid #0a1e5a;
+            border-bottom: none; 
+            border-radius: 8px 8px 0 0;
+            background: white; /* Prevents seeing through the map while loading */
+        }
+
+        /* Guess button fills the bottom of the container, matching the map width exactly */
+        .guessButton {
+            width: 100%; 
+            padding: 12px;
+            background: #358fee; 
+            color: white;
+            font-size: 18px; 
+            font-weight: bold;
+            border: 3px solid #0a1e5a; 
+            border-radius: 0 0 8px 8px; 
+            cursor: pointer; 
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* user interface layer in the top left, shows score, round and has the reveal clue button */
+        #ui-layer {
+            position: absolute;
+            top: 10px; left: 10px;
+            z-index: 1000;
+            background: #0a1e5a;
+            padding: 15px; border-radius: 8px;
+            width: 250px; color: white;
+        }
+
+        /*user interface button for guesssing */
+        #ui-layer button {
+            display: block; 
+            width: 100%;
+            margin-top: 10px; 
+            padding: 12px;
+            cursor: pointer; 
+            font-weight: bold;
+            border: none; 
+            border-radius: 5px;
+            background: #358fee; 
+            color: white;
+            transition: background 0.2s;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        /* hover effect for the user interface buttons */
+        #ui-layer button:hover {
+            background: #266db3; 
+        }
+
+        /*leaflet popup style for when player clicks on the map to guess */
+        .leaflet-popup-content-wrapper {
+            background: #0a1e5a;
+            color: white;
+            border: 2px solid #358fee;
+            border-radius: 8px;
+        }
+        /* content of the popup.margin and font styling */
+        .leaflet-popup-content {
+            margin: 8px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* the tip of the popup, the little arrow pointing to the location on the map */
+        .leaflet-popup-tip {
+            background: #0a1e5a;
+            border: 2px solid #358fee;
+        }
+
+        /* remove the default close button from the leaflet popup since it looks out of place with our custom styling */
+        .leaflet-popup-close-button {
+            display: none;
+        }
+
+
+        
+      
+    </style>
+</head>
+
+<body>
+    <div id="ui-layer">
+        <div id="scoreDisplay" style="font-weight: bold; margin-bottom: 10px; color:#ffffff;">SCORE: 0 | ROUND: 0</div>
+        <button onclick="revealNext()">REVEAL CLUE</button>
+        <hr style="margin: 15px 0; color:#ffffff;">
+        <div id="countryOutput" style="color: #ffffff;">Loading...</div>
+    </div>
+
+    <div id="mapGuess">
+        <div id="map"></div>
+        <button class="guessButton" onclick="AnswerChecker()">GUESS</button>
+    </div>
+   
+    <div id="mly"></div>
+
+  <div id="resultModal" class="dashboard-overlay" style="display:none;">
+        <div class="dashboard-header">
+            <div class="score-pill">
+                TOTAL SCORE: <span id="modalTotalScore">0</span>
+            </div>
+        </div>
+
+        <div id="modalMap"></div>
+
+        <div class="dashboard-footer">
+            <div class="stat-group">
+                <h2 id="modalDistance" class="neon-blue">0 km</h2>
+                <p>DISTANCE</p>
+            </div>
+
+            <div class="action-group" style="text-align: center;">
+                <button id="modalBtn" class="next-btn">NEXT ROUND</button>
+            </div>
+
+            <div class="stat-group">
+                <h2 id="modalPoints" class="neon-yellow">0</h2>
+                <p>POINTS EARNED</p>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="endgameModal" class="dashboard-overlay" style="display:none; justify-content: center; align-items: center;">
+        <div class="modalContent" style="background: #00000000; padding: 50px; border-radius: 30px; border: 3px solid #0a1e5a; text-align: center; box-shadow: 0 0 50px #0a1e5a88;">
+            
+            <h1 id="endgameTitle" class="neon-yellow" style="font-size: 60px; margin-bottom: 10px;">GAME COMPLETE</h1>
+            <p style="color: #ffffff; letter-spacing: 3px; font-weight: bold; margin-bottom: 30px;">RESULTS:</p>
+
+            <div style="display: flex; justify-content: space-around; margin-bottom: 40px; gap: 40px;">
+                <div class="stat-group">
+                    <h2 id="finalTotalScore" class="neon-blue" style="font-size: 50px; color: #358fee; text-shadow: 0 0 15px #358fee;">0</h2>
+                    <p>YOUR SCORE</p>
+                </div>
+                <div class="stat-group" id="opponentSection" style="display:none;">
+                    <h2 id="opponentScore" class="neon-blue" style="font-size: 50px; color: #ff3535; text-shadow: 0 0 15px #ff3535;">0</h2>
+                    <p>OPPONENT SCORE</p>
+                </div>
+            </div>
+
+            <div id="endgameMessage" style="color: white; font-size: 20px; margin-bottom: 40px; line-height: 1.6;"></div>
+
+            <button onclick="window.location.href='mainMenu.html'" class="homeBtn">
+                RETURN TO MENU
+            </button>
+        </div>
+    </div>
+
+    //scripts for map library, mapillary js and game logic js file
+    <script src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="gameLogic.js"></script>
+
+</body>
+</html>
+

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>World Quiz Main Menu</title>
+    <style>
+        /* Full-screen background image with a dark overlay for better text visibility */
+        body { 
+            background-image: url(bg.jpg); 
+            background-repeat: no-repeat; 
+            background-position: center; 
+            background-attachment: fixed; 
+            background-size: cover; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            font-family: sans-serif; 
+        }
+
+        /*header styling for the main title of game */
+       h1 {
+            font-size: 130px;
+            font-weight: 800;
+            color: #fefeff;
+            letter-spacing: 5px;
+            /* Stacked shadows to create a "thick" 3D edge */
+            text-shadow: 
+                1px 1px 0px #358fee,
+                2px 2px 0px #358fee,
+                3px 3px 0px #358fee,
+                4px 4px 20px rgba(0,0,0,0.8);
+            margin-bottom: 30px;
+        }
+
+        /* container for the two game mode boxes, uses flexbox to position them side by side with some gap */
+        .menuContainer {
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        /*country match menu box styling */
+       .CountryMatchMenuBox {
+            background: #0a1e5ad9; 
+            backdrop-filter: blur(10px); 
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px #00000066;
+            width: 400px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+        }
+
+        /*precision point menu box styling (same as country match but with different colors) */
+        .PrecisionMenuBox {
+            background: #0a1e5ad9; 
+            backdrop-filter: blur(10px); 
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px #00000066;
+            width: 400px;
+            text-align: center;
+            border: 1px solid #ffffff4d; 
+        }
+
+        .JoinGameBox {
+            background: #0a1e5ad9; 
+            backdrop-filter: blur(10px); 
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px #00000066;
+            width: 830px; /* Matches the width of the top row */
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-top: 30px; /* Space between the rows */
+        }
+
+        .JoinGameBox h3 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 24px;
+            letter-spacing: 2px;
+        }
+
+
+        /*button styling for all buttons in the menu*/
+        button { 
+            cursor: pointer; color: white; border: none; font-weight: bold ; 
+         }
+
+         /*info button styling for info icon on top right */
+        #infoButton {  
+            color:#ffffff; background: transparent; position: absolute; top: 20px; right: 20px; font-size: 48px !important;
+        }
+
+        /*modal styling for information box */
+        .modalOverlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #00000088;
+            box-shadow: 0 15px 35px #00000066;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000; 
+        }
+
+        /*modal content styling for information box */
+        .modalContent {
+            background: #ffffffd9;
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            width: 400px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 5px 15px #0000004d;
+        }
+
+        
+
+        
+
+    </style>
+    <!--for info icon on top rights-->
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=info" />
+</head>
+<body>
+
+    <button class="infoButton" type="button" id="infoButton">
+        <span class="material-symbols-outlined">
+            info
+        </span>
+    </button>
+
+    <h1 style="font-size: 130px; color: #fefeff; margin-bottom: 30px;">WORLD QUIZ</h1>
+
+    <div id="infoModal" class="modalOverlay" style="display:none;">
+        <div class="modalContent">
+            <h2 style="color: #000;">How to Play</h2>
+            <hr>
+            <p>Welcome to <strong>World Quiz!</strong></p>
+            <ul style="text-align: left; color: #000; line-height: 1.6;">
+                <li><strong>Host:</strong> Create a room and share the 4-letter code.</li>
+                <li><strong>Join:</strong> Enter a friend's code to enter their room.</li>
+                <li><strong>Gameplay:</strong> You'll see a random street-view. Guess the location on the map.</li>
+                <li><strong>Country Match:</strong>  The fewer clues you use, the higher your score!</li>
+                <li><strong>Precision Point:</strong> Guess the exact location for maximum points! The closer you are, the more points you earn.</li>
+            </ul>
+            <button id="closeModalBtn" style="background: #000; padding: 10px 20px; border-radius: 5px; margin-top: 10px;">Got it!</button>
+        </div>
+    </div>
+    <div class="menuContainer">
+            
+        <div class="CountryMatchMenuBox">
+            <h2 style="color: hsl(0, 0%, 100%); font-size: 40px; margin-bottom: 30px; text-shadow: 0px 5px 15px #358fee; color: #358fee;">COUNTRY MATCH</h2>
+            <p style="color: #6a6a6c; font-size: 16px; margin-bottom: 30px;">
+                Can you guess the country? The fewer clues you use, the higher your score!
+            </p>
+            <button id="singlePlayerBtn" style="background: #358fee; padding: 15px; font-size: 18px; border-radius: 8px; width: 100%; margin-bottom: 10px;">
+            <i class="fa-solid fa-user" style="margin-right: 10px; text-shadow: #000 0px 0px 10px;"></i> PLAY SOLO
+            </button>
+            
+            <hr style="margin: 20px 0; border: 1px solid #358fee4d;">
+
+        
+            <button id="create-room-btn" style="background: transparent; border: 2px solid #358fee; padding: 15px; font-size: 18px; border-radius: 8px; width: 100%; margin-bottom: 10px; color: #d0d0d0;">
+            <i class="fa-solid fa-user" style="margin-right: 10px; "></i> HOST GAME    
+            </button>
+            
+            <div id="room-display" style="display:none; margin: 15px 0; font-weight: bold; color: #28a745; font-size: 18px;">
+                Room Code: <span id="room-code-text"></span><br>
+                <span style="font-size: 14px; color: #666; font-weight: normal;">Waiting for opponent to join...</span>
+            </div>
+
+           
+            
+        
+            
+        </div>
+
+        <div class="PrecisionMenuBox">
+            <h2 style="color: #ffcc00;font-size: 40px; margin-bottom: 30px; text-shadow: 0px 10px 30px #ffcc004d;">PRECISION POINT</h2>
+            <p style="color: #6a6a6c; font-size: 16px; margin-bottom: 30px;">
+                Guess the exact location for maximum points! The closer you are, the more points you earn.
+            </p>
+            <button id="singlePlayerBtnPrecision" style="background: #ffcc00; color: #0a1e5a; padding: 18px; font-size: 18px; border-radius: 12px; width: 100%; margin-bottom: 15px;">
+                <i class="fa-solid fa-crosshairs" style="margin-right: 10px;"></i> START CHALLENGE
+            </button>
+            
+            <hr style="margin: 20px 0; border: 1px solid #ffcc004d;">
+
+        
+            <button id="create-room-btnPrecision" style="background: transparent; border: 2px solid #ffcc00; padding: 15px; font-size: 18px; border-radius: 8px; width: 100%; margin-bottom: 10px; color: #ffcc00;">
+            <i class="fa-solid fa-user" style="margin-right: 10px;"></i> HOST GAME    
+            </button>
+            
+            <div id="room-displayPrecision" style="display:none; margin: 15px 0; font-weight: bold; color: #28a745; font-size: 18px;">
+                Room Code: <span id="room-code-textPrecision"></span><br>
+                <span style="font-size: 14px; color: #666; font-weight: normal;">Waiting for opponent to join...</span>
+            </div>
+
+            
+            
+        </div>
+
+    </div> 
+       
+    <div class="JoinGameBox">
+        <h2 style="color: #50ff6d;font-size: 40px; margin-bottom: 30px; text-shadow: 0px 10px 30px #50ff6d88;">SEARCH FOR A GAME</h2>
+        <div id="join-container-global" style="display: flex; gap: 20px; justify-content: center; align-items: center;">
+            <input type="text" id="room-code-input" placeholder="ENTER CODE" maxlength="4" 
+                style="width: 300px; padding: 15px; text-transform: uppercase; border: 2px solid #50ff6d; border-radius: 8px; background: rgba(255,255,255,0.1); color: white; text-align: center; font-size: 20px; font-weight: bold;">
+            
+            <button id="join-room-btn" style="background: #50ff6d; padding: 15px 40px; border-radius: 8px; font-size: 20px; width: 250px;">
+                <i class="fa-solid fa-right-to-bracket"></i> JOIN GAME
+            </button>
+        </div>
+    </div>
+    
+    <script src="MainMenu.js"></script>
+</body>
+</html>

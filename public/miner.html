@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MapillaryID searcher</title>
+</head>
+<body>
+
+   
+    <textarea id="output" rows="30" style="width: 100%;"></textarea>
+
+    <script>
+        const MAPILLARY_TOKEN = "left out because its private";
+
+        const TARGET = 100;
+        const output = document.getElementById("output");
+        let minedIds = [];
+        console.log("Starting search ");
+
+        async function start() {
+            // Fetch all countries and their capital locations
+            try {
+                //wait for the response from the countries API and parse it as JSON
+                //countries = an array of country objects with name and capitalInfo properties
+                const response = await fetch("https://restcountries.com/v3.1/all?fields=name,capitalInfo");
+                const countries = await response.json();
+                //while image ids mined is less than target, keep mining
+                while (minedIds.length < TARGET) {
+                    // Pick a random country
+                    const c = countries[Math.floor(Math.random() * countries.length)];
+                    // Skip if no capital latitude/longitude information is available for the country
+                    if (!c.capitalInfo.latlng) continue;
+                    // Randomize location from capital coordinates
+                    const lat = c.capitalInfo.latlng[0] + (Math.random() - 0.5) * 0.1;
+                    const lon = c.capitalInfo.latlng[1] + (Math.random() - 0.5) * 0.1;
+                    // Log the country being checked
+                    console.log(`Checking ${c.name.common} at (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
+
+                    // Fetch Mapillary image ID for the location
+                    const id = await fetchMapillary(lat, lon);
+                    
+                    // If an image ID is found and it's not already mined, add it to the list and update output
+                    if (id && !minedIds.includes(id)) {
+                        // Log the found image and country
+                        console.log(`Found image ${id} for ${c.name.common}`);
+                        // Add the ID to the mined list
+                        minedIds.push(id);
+                        // Update the output textarea with the new SQL insert statement
+                        output.value = `INSERT INTO locations (mapillary_id) VALUES \n    ('${minedIds.join("'),\n    ('")}')\n;`;
+                    }
+                    // Wait a short time before the next request to avoid hitting rate limits
+                    await new Promise(r => setTimeout(r, 100)); 
+                }
+                // Log completion message
+                console.log("Mining complete");
+                //catch any errors that occur during the mining process and log them
+                // If there's an error during mining then log it 
+            } catch (e) {
+                console.error("Error during mining:", e);
+            }
+        }
+
+        // Function to fetch Mapillary image ID for given coordinates
+        async function fetchMapillary(lat, lon) {
+            // Define a small bounding box around the coordinates
+            //bbox is used in the API request to specify the area to search for images 
+            //needed to find images as we can't search by exact coordinates, so we search within a small area around the point
+            const range = 0.005;
+            const bbox = `${lon - range},${lat - range},${lon + range},${lat + range}`;
+            // Construct the Mapillary API URL
+            //need to filter for panoramic  only
+            //limit = 1 means we only want one image per request
+            //this is an example of an api
+            
+            const url =  `https://graph.mapillary.com/images?access_token=${MAPILLARY_TOKEN}&fields=id&bbox=${bbox}&is_pano=true&limit=1`;
+            
+            // Fetch the image data and return the ID if found
+            // If there's an error then return null to skip this location
+            //result data is the image id
+        
+            
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.data?.length > 0) {
+                    return result.data[0].id;
+                }
+                return null;
+            } catch(e) {
+                return null;
+            }
+        }
+
+        window.onload = start;
+    </script>
+</body>
+</html>
