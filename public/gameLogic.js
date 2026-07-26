@@ -1,546 +1,354 @@
-// Global Variables
-//api token - fetched from the server at runtime instead of hardcoded here,
-//so it's not committed to source control. Server reads it from an
-//environment variable (see server.js /api/mapillary-config route).
-let MAPILLARY_TOKEN = null;
-
-async function loadMapillaryToken() {
-    if (MAPILLARY_TOKEN) return MAPILLARY_TOKEN;
-    const res = await fetch('/api/mapillary-config');
-    const data = await res.json();
-    MAPILLARY_TOKEN = data.token;
-    return MAPILLARY_TOKEN;
-}
-
-//target icon for modal map
-const targetIcon = L.icon({ 
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',//using a green marker icon from an open source repository for better visibility on the modal map
-            iconSize: [25, 41], iconAnchor: [12, 41] 
-        });
-
-
-let viewer = null; // Mapillary viewer instance
-let currentMarker = null;  // Leaflet marker for the player's guess
-let lastClicked = null;  //saves last clicked coordinates and country info for answer checking and modal display
-let MapillarycountryCode = null;  // ISO country code of the current Mapillary location, used for answer checking and clues
-let countryName = null; // Country name for displaying in the modal and clues
-let playerScore = 0; // Player's starting score, updated after each round
-let roundNumber = 1; //game start round
-let RevealClue = []; //array to hold clues
-let RevealClueIndex = 0; //index to track which clue to reveal next
-let singlePlayerLocationList = []; //list of mapillary ids for single player 
-let targetLatitude = null; //target coordinates for answer checking and modal display
-let targetLongitude = null; //target coordinates for answer checking and modal display
-let answerLine = null; //line connecting guess and target in precision mode on modal map
-let map = null; // Leaflet map instance
-let modalMap = null; // Leaflet map instance for the modal display of guess and target locations
-const maxPoints = 5000;
-const penaltyPerClue = 1000;
-
-
-
-//url parameters to determine if player is in multiplayer room and which mode they are playing
-const urlParams = new URLSearchParams(window.location.search);
-const gameMode = urlParams.get('mode'); // "countrymatch" or "precisionpoint"
-const myRoomCode = urlParams.get('room'); //room code if in multiplayer, null if single player
-const myPlayerNum = urlParams.get('player'); // 1 or 2 if in multiplayer, null if single player
-
-
-
-
-// Log the mode and room info for debugging
-if (myRoomCode) {
-    console.log("Playing in multiplayer room:", myRoomCode);
-} else {
-    console.log("Playing in single player mode!");
-}
-
-//function to initalise mapillary viewer 
-async function initViewer() {
-    if (viewer) return; // Already exists, do nothing
-
-    await loadMapillaryToken();
-
-    const { Viewer } = mapillary;
-    viewer = new Viewer({
-        accessToken: MAPILLARY_TOKEN,
-        container: 'mly',
-        component: {
-            cover: false,
-            direction: true, 
-            sequence: false, 
-            tag: false,
-            popups: false,
-            cache: false,
-           
-        }
-    });
-    window.addEventListener('resize', () => viewer.resize()); // handles window resizing to keep viewer full size
-}
-
-
-
-
-// Haversine formula to calculate distance between two lat/lng points in kilometers
-//Used for precision mode to calculate the score
-function haversine(lat1,lon1,lat2,lon2){
-    let latDistance = (lat2-lat1) * Math.PI / 180;
-    let lonDistance = (lon2-lon1) * Math.PI / 180;
-    lat1 = lat1 * Math.PI / 180;
-    lat2 = lat2 * Math.PI / 180;
-    let a = Math.pow(Math.sin(latDistance/2), 2) + Math.pow(Math.sin(lonDistance/2), 2) * Math.cos(lat1) * Math.cos(lat2);
-    let c = 2 * Math.asin(Math.sqrt(a));
-    let Rad = 6371; // Radius of earth in kilometers
-    return Rad * c;
-}
-
-
-
-
-
-//updates the score and round number 
-function updateScoreDisplay() {
-    document.getElementById("scoreDisplay").innerText = `Score: ${playerScore} | Round: ${roundNumber}`;
-}
-
-
-
-
-
-
-
-//Nominatim reverse geocode function to get the country and country code
-//country code is used for checking the answer and revealing clues
-//country is for displaying the country name
-async function reverseGeocodeCountry(lat, lon) {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1`);
-    const data = await res.json();
-    // If no address or country information is found, return null values
+<!DOCTYPE html>
+<html>
+<head>
     
-    if (!data ) {
-        return { country: null, country_code: null };
-    }
-
-   // Return the country and iso country code  
-   //the return is in an object format with properties country and country_code for easy access in other functions
-    return {
-        country: data.address.country,
-        country_code: data.address.country_code
-    };
-}
-
-
-
-
-
-
-
-
-
-
-// Main function to start a round by showing a random Mapillary location and setting up the clues
-async function showRandomCountry() {
-
-    // Clean up previous round answer line
-    if (answerLine) {
-            map.removeLayer(answerLine);
-            answerLine = null;
-        }
-
-    //clean up previous round marker and last clicked data
-    lastClicked = null;
-
-     if (currentMarker) {
-            map.removeLayer(currentMarker);
-            currentMarker = null;
-        }
-
+    // the links below are for the map and street view libraries we use, leaflet and mapillary js
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css" rel="stylesheet" />
     
-
-    // Get the next Mapillary location based on game mode and round number
-    const output = document.getElementById("countryOutput");
-    let targetMapillaryId;
-
-    try {
-        // if statement to see if its multiplayer
-        if (typeof myRoomCode !== 'undefined' && myRoomCode) {
-            // Multiplayer
-            const MultiplayerResponse = await fetch(`checkStatus?code=${myRoomCode}`);
-            const roomData = await MultiplayerResponse.json();
-            
-            // Get the specific mapillary ID for the curreent round
-            const currentRoundIndex = roomData.round - 1;
-            targetMapillaryId = roomData.locations[currentRoundIndex];
-            console.log("Loading location:", targetMapillaryId);
-            //if its single player we use singleplayerlocationphp to get a list of 5 random mapillary ids
-            // and use the singleplayerlocationlist to store the countries
-        } else {
-            if (singlePlayerLocationList.length === 0) {
-            const response = await fetch('SinglePlayerRandomLocation');
-            const data = await response.json();
-            singlePlayerLocationList = data.locations;
-        }
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
         
-        // single player just uses the next location in the list based on the round number
-        targetMapillaryId = singlePlayerLocationList[roundNumber - 1];
-        console.log("Single Player Round:", roundNumber, "ID:", targetMapillaryId);
-    }
-
-        //initalize the viewer and move to the target location
-        
-        await initViewer();
-        await viewer.moveTo(targetMapillaryId); //move to rather than remaking viewer to preserve cache and reduce load times
-
-
-
-        //server-side proxy call to get the coordinates of the target location
-        //(keeps the token out of this request entirely - server holds it)
-        //mapData is used to store the tarhet coordniates 
-        const mapillaryUrl = `/api/location-geometry?id=${targetMapillaryId}`;
-        const mapRes = await fetch(mapillaryUrl);
-        const mapData = await mapRes.json();
-        
-        //store the target coordinates in global variables for later use in answer checking and modal map
-        targetLongitude = mapData.computed_geometry.coordinates[0];
-        targetLatitude = mapData.computed_geometry.coordinates[1];
-
-
-
-        // Use reverse geocoding to get the country code and country name for the target location
-        const geo = await reverseGeocodeCountry(targetLatitude, targetLongitude);
-        MapillarycountryCode = geo.country_code;
-
-
-        // Fetch additional country info via our own server (which holds the REST Countries
-        // API key) to set up clues. This includes region, population, capital, and flag.
-        //country info is stored in the RevealClue array which is used to reveal clues in order when the player clicks the "Reveal Clue" button
-        const restUrl = `/api/country-info?code=${MapillarycountryCode}`;
-        const restRes = await fetch(restUrl);
-        const countryInfo = await restRes.json();
-        console.log(countryInfo);
-        countryName = countryInfo.names.common;
-
-        // Set up the clues in the order they will be revealed. We store them in an array and use RevealClueIndex to track which clue to show next.
-        RevealClue = [
-            `<h3>Clue 1: Region</h3><p>${countryInfo.region}</p>`,
-            `<h3>Clue 2: Population</h3><p>${Number(countryInfo.population).toLocaleString()}</p>`,
-            `<h3>Clue 3: Capital</h3><p>${countryInfo.capitals?.[0]?.name}</p>`,
-            `<h3>Clue 4: Flag</h3><img src="${countryInfo.flag.url_svg}" width="120" style="border: 1px solid #ccc;">`,
-        ];
-        
-        
-
-
-        
-        RevealClueIndex = -1;
-        output.innerHTML = "<strong>Round Started!</strong>";
-    
-    } catch (error) {
-        console.error("Error setting up the round:", error);
-        showRandomCountry(); // Try again with a different location if there's an error
-    }
-}
-
-// Custom modal function to show results after each round.
-//Shows the distance, points earned, and a map with the guess and target locations.
-//In multiplayer, it also handles the waiting logic for the opponent and transitions to the next round or endgame.
-//handles endgame messaging and shows final scores 
-function showCustomModal(callback, coords = null, distance = 0, points = 0) {
-    const modal = document.getElementById("resultModal"); // Get modal elements for displaying results
-    const distEl = document.getElementById("modalDistance"); // Element to display distance between guess and target
-    const pointsEl = document.getElementById("modalPoints"); // Element to display points earned for the round
-    const scoreEl = document.getElementById("modalTotalScore"); // Element to display total score after the round
-
-    // Set the distance, points, and total score in the modal
-    // Append " km" to the numerical value for better UI clarity
-    if (distEl) distEl.innerText = `${distance.toFixed(1)} km`;
-    if (pointsEl) pointsEl.innerText = points;
-    if (scoreEl) scoreEl.innerText = playerScore;
-    modal.style.display = "flex";
-
-    // If coordinates are provided, set up the modal map to show the guess and target locations
-    if (coords) {
-        // Initialize the modal map if it doesn't exist, or clear existing markers and lines if it does
-        if (!modalMap) {
-            modalMap = L.map('modalMap', { attributionControl: false, zoomControl: false }).setView([0, 0], 2);
-            L.tileLayer('https://api.maptiler.com/maps/streets-v4/{z}/{x}/{y}.png?key=S8NmHw1EUy7izVqZxg2O').addTo(modalMap);
-        }
-        // Clear previous markers and lines from the modal map
-        modalMap.eachLayer(l => { if (l instanceof L.Marker || l instanceof L.Polyline || l instanceof L.Popup) modalMap.removeLayer(l); });
-
-        // Add popup for the target location with the country name and a popup for the player's guess with the guessed country name
-        //L.popup().setLatLng([coords.targetLat, coords.targetLng]).addTo(modalMap);
-        //L.popup().setLatfLng([coords.guessLat, coords.guessLng]).addTo(modalMap);
-
-        //add markers for the target and guess locations on the modal map, using a custom icon for the target
-        L.marker([coords.targetLat, coords.targetLng], {icon: targetIcon}).addTo(modalMap);
-        L.marker([coords.guessLat, coords.guessLng]).addTo(modalMap);
-
-        let line; // variable to hold the line connecting guess and target in precision mode
-
-        //if precision add a line 
-        if (gameMode === "precision") {
-            
-            line = L.polyline([[coords.guessLat, coords.guessLng], [coords.targetLat, coords.targetLng]], 
-                {color: '#35f9ff', weight: 4, dashArray: '10, 10'}).addTo(modalMap);
-        } else {
-            // no line on country match
-            line = L.polyline([[coords.guessLat, coords.guessLng], [coords.targetLat, coords.targetLng]], 
-                {color: 'transparent'}).addTo(modalMap);
+        /* body style removes default margin and hides scrollbars, also sets a dark background and a clean sans-serif font */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: 'Inter', sans-serif; 
         }
 
-        // Fit the modal map view to show both the guess and target locations, with some padding
-        //timeout is needed to ensure the map has rendered before trying to fit bounds, otherwise it can get stuck in a loop of resizing
-        setTimeout(() => {
-            modalMap.invalidateSize();
-            // bound map to the line to get a clear view
-            if (line) {
-                modalMap.flyTo([coords.targetLat, coords.targetLng], 3, {
-                animate: true,
-                duration: 1.5 // seconds
-                });
+
+        /* dashboard overlay used for endgame and round result modal */
+        .dashboard-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: black;
+            z-index: 5000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* modal map to show players guess */
+        #modalMap {
+            flex-grow: 1; 
+            width: 100%;
+        }
+
+        /* dashboard header and footer are the top and bottom of model, header shows score and footer shows distance and points earned */
+        .dashboard-header, .dashboard-footer {
+            background: #0a1e5ad9;
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /*dashboard footer style */
+        .dashboard-footer {
+            height: 140px;
+            justify-content: space-around; /* space out the distance and points sections */
+        }
+
+        /* score pill in the dashboard header */
+        .score-pill { 
+            background: transparent; 
+            padding: 10px 25px; 
+            border-radius: 8px; 
+            border: 2px solid #358fee; 
+            color: white; 
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: bold;
+            letter-spacing: 1px;
+            font-size: 32px;
+        }
+
+
+        /* neon text styles for distance and points in the dashboard footer */
+        .neon-blue { 
+            color: #358fee; 
+            text-shadow: 0 0 15px #358fee4d;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 45px; 
+            margin: 0; 
+        }
+
+
+        .neon-yellow { color: #ffcc00; 
+            text-shadow: 0 0 15px #ffcc004d; 
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 45px; 
+            margin: 0; 
+        }
+
+
+        /* stat group used for distance and points sections in the dashboard footer */
+        .stat-group { 
+            text-align: center; 
+        }
+
+        /* style for the labels under distance and points in the dashboard footer */
+        .stat-group p { color: #888; 
+            margin-top: 5px; 
+            letter-spacing: 2px; 
+            font-size: 12px; 
+        }
+
+        /* next button style */
+        .next-btn {
+            background: #50ff6d;
+            color: #000;
+            padding: 15px 100px;
+            font-size: 24px;
+            font-weight: 900;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 20px #50ff6d88;
+            transition: 0.2s;
+        }
+
+        /* next button hover effect */
+        .next-btn:hover { 
+            transform: scale(1.05); 
+            background: #7cff93; 
+        }
+
+        /*home button style, used on endgame modal to return to main menu */
+        .homeBtn {
+            background: #315de1;
+            color: #000;
+            padding: 15px 100px;
+            font-size: 24px;
+            font-weight: 900;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 20px #3e68e688;
+            transition: 0.2s;
+        }
+        
+        /* home button hover effect */
+        .homeBtn:hover { 
+            transform: scale(1.05); 
+            background: #266db3; 
+        }
+        
+        
+
+        /* mly is the mapillary street container. fills the screen and is behind everything */
+        #mly {
+             position: absolute; 
+             top: 0; 
+             left: 0; 
+             width: 100vw; 
+             height: 100vh; 
+             z-index: 0; 
             }
-        }, 300);
-    }
 
-    // set up model button
-    //if round 5 change text to "view final results" otherwise "next round"
-    
-    const btn = document.getElementById("modalBtn");
-    btn.innerText = roundNumber >= 5 ? "VIEW FINAL RESULTS" : "NEXT ROUND";
-    btn.onclick = () => {
-        modal.style.display = "none";
-        if (callback) callback();
-    };
-}
-
-async function AnswerChecker() {
-    // checks if player has made a guess by clicking on the map.
-    //if not then an alert is shown asking to click a location 
-    if (!lastClicked) {
-        alert("Please select a location on the map first!");
-        return;
-    }
-
-    // initalise variables for points, distance, and result messaging. 
-    let pointsEarned = 0;
-    let distance = 0;
-    
-
-    // calculate distance with haversine formula function
-    //used for precision mode scoring
-    distance = haversine(Number(lastClicked.lat), Number(lastClicked.lng), targetLatitude, targetLongitude);
-
-    //precision mode scoring
-    if(gameMode === "precision") {
-        // Exponential Scoring with points capped at 5000
-        //steep drop in points for first 2000 km
-        //decreases slower after 2000km
-        pointsEarned = Math.round(5000 * Math.exp(-distance / 2000)); 
-        
-
-
-    } else {
-        // Country Match Scoring
-    
-        //points determined based on how many clues were used before getting right country
-        //max 7 points if no clues were used
-       if (lastClicked.country_code === MapillarycountryCode) { 
-            // If correct, subtract 1000 points for every clue opened
-            pointsEarned = maxPoints - (RevealClueIndex * penaltyPerClue);
-        } else {
-            pointsEarned = 0;
-        }
-        
-       
-    }    
-    
-    //add score 
-    playerScore += pointsEarned;
-
-    // Prepare coordinates for the modal map
-    const coordsObj = {
-        guessLat: Number(lastClicked.lat),
-        guessLng: Number(lastClicked.lng),
-        targetLat: targetLatitude,
-        targetLng: targetLongitude
-    };
-
-    // Transition to the next round or endgame functions
-    const Transition = () => {
-        roundNumber += 1;
-        if (roundNumber > 5) {
-            endgame();
-        } else {
-            updateScoreDisplay();
-            showRandomCountry(); 
-        }
-    };
-
-
-
-    // multiplayer logic flow
-    if (myRoomCode && myPlayerNum) {
-        // show custom modal with results and map of guess and target locations
-        showCustomModal( null, coordsObj, distance, pointsEarned);
-        
-        // disable the modal button and change text to waiting for opponent
-        //this is to ensure the player doesnt go on the next round before the opponent
-        const modalBtn = document.getElementById("modalBtn");
-        modalBtn.disabled = true;
-        modalBtn.innerText = "WAITING FOR OPPONENT...";
-
-        //submit the guess to the server with fetch to update the room file with the player's guess and score
-        try {
-            await fetch(`submitGuess?code=${myRoomCode}&player=${myPlayerNum}&score=${pointsEarned}`);
-            //wait interval to check if the opponent has submitted their guess
-            //checks every 2 seconds if the room file has updated
-            const waitInterval = setInterval(async () => {
-            const statusRes = await fetch(`checkStatus?code=${myRoomCode}`);
-            const roomData = await statusRes.json();
+        /* Container for the map and guess button - handles the popout*/
+        #mapGuess {
+            position: fixed;
+            bottom: 20px; 
+            left: 20px;
+            height: 500px; /* Base height when not hovering */
+            width: 700px; /* This is the base width when not hovering */
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px #00000066;
             
-            //if the room round number has increased it means the opponent has guessed
-            if (roomData.round > roundNumber) {
-                clearInterval(waitInterval);
-                //change round number to match the server
-                roundNumber = roomData.round;
-
-                //initalise countdown for the next round to allow the player to see the results before moving on
-                const modalBtn = document.getElementById("modalBtn");
-                let countdown = 5;
-                modalBtn.disabled = true; 
-                
-                //countdown interval to show the countdown on the modal button before transitioning to the next round
-                const countdownTimer = setInterval(() => {
-                    modalBtn.innerText = `NEXT ROUND IN ${countdown}...`;
-                    countdown--;
-
-                    if (countdown < 0) {
-                        // Once countdown is complete, clear the timer and transition to the next round
-                        clearInterval(countdownTimer);
-                        
-                    
-                        document.getElementById("resultModal").style.display = "none";
-                        
-                        //logic to check if its the end of the game or transition to the next round
-                        if (roundNumber > 5) {
-                            endgame(roomData);
-                        } else {
-                            updateScoreDisplay();
-                            showRandomCountry(); 
-                        }
-                    }
-                }, 1000); // Countdown updates every second
-            }
-        }, 2000); // Check every 2 seconds if opponent has guessed and round number has increased
-        } catch (err) { console.error(err); }
-
-    } else {
-        // single player modal flow 
-        showCustomModal(Transition, coordsObj, distance, pointsEarned);
-    }
-}
-
-//function for revealing next clue
-function revealNext() {
-    if (RevealClueIndex < RevealClue.length - 1) {
-        RevealClueIndex++;
-        document.getElementById("countryOutput").innerHTML = RevealClue.slice(0, RevealClueIndex + 1).join("");
-    }
-}
-
-//end game function to show final results
-//multiplayer shows who won based on score
-//single player just shows final score
-function endgame(roomData = null) {
-    
-    document.getElementById("resultModal").style.display = "none";
-    
-    const endgameModal = document.getElementById("endgameModal"); // Get endgame modal elements for displaying final results
-    const titleEl = document.getElementById("endgameTitle"); //get element for title of endgame modal
-    const scoreEl = document.getElementById("finalTotalScore"); //get element for final score display in endgame modal
-    const msgEl = document.getElementById("endgameMessage"); //get element for endgame message display in endgame modal
-    const oppSection = document.getElementById("opponentSection"); //get element for opponent score section in endgame modal
-    const oppScoreEl = document.getElementById("opponentScore"); //get element for opponent score display in endgame modal
-
-    let titleText = ""; //variable to hold the title text for the endgame modal
-    let messageText = ""; //variable to hold the message text for the endgame modal
-
-    // Handle Multiplayer Logic
-    if (myRoomCode && myPlayerNum && roomData) {
-        oppSection.style.display = "block"; 
-        const myScore = roomData[`player${myPlayerNum}`].score; //get the player's score from the room data
-        const oppNum = myPlayerNum === '1' ? '2' : '1'; //determine opponent player number. if player 1 then opponent is 2, if player 2 then opponent is 1
-        const oppScore = roomData[`player${oppNum}`].score; //get opponent score from room data
-
-        scoreEl.innerText = myScore; //set player's final score in the endgame modal
-        oppScoreEl.innerText = oppScore; //set opponent's final score in the endgame modal
-
-        //logic to determine the endgame message based on who won
-        if (myScore > oppScore) {
-            titleText = "WINNER ";
-            messageText = "Impressive";
-        } else if (myScore < oppScore) {
-            titleText = "LOSER ";
-            messageText = "Better luck next time";
-        } else {
-            titleText = "IT'S A TIE!";
-            messageText = "Rematch to find out who really knows their geography";
+            /* Anchor growth to the bottom right so it stretches to the center */
+            transform-origin: bottom left;
+            transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease;
         }
-    } 
-    
-    // Single Player Logic
-    else {
-        oppSection.style.display = "none";
-        scoreEl.innerText = playerScore;
-        titleText = "GAME COMPLETE";
-        messageText = `Well played!`;
-    }
 
-    // Set the title and message in the endgame modal and display it
-    titleEl.innerText = titleText;
-    msgEl.innerHTML = messageText;
-    endgameModal.style.display = "flex";
-}
+        /* When hovering anywhere on the map or button, the whole unit scales up */
+        #mapGuess:hover {
+            transform: scale(1.6); /* Adjust this to make it even larger if desired */
+            box-shadow: -15px -15px 40px rgba(0,0,0,0.6);
+        }
+
+        /* Map fills the top of the container */
+        #map {
+            flex-grow: 1;
+            width: 100%; 
+            height: 250px; /* Base height when not hovering */
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-bottom: none; 
+            background: white; /* Prevents seeing through the map while loading */
+        }
+
+        /* Guess button fills the bottom of the container, matching the map width exactly */
+        .guessButton {
+            width: 100%; 
+            padding: 14px;
+            background: #358fee; 
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 18px; 
+            font-weight: bold;
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+            cursor: pointer; 
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: filter 0.15s ease;
+        }
+
+        .guessButton:hover {
+            filter: brightness(1.12);
+        }
+
+        /* user interface layer in the top left, shows score, round and has the reveal clue button */
+        #ui-layer {
+            position: absolute;
+            top: 20px; left: 20px;
+            z-index: 1000;
+            background: #0a1e5ad9;
+            backdrop-filter: blur(10px);
+            padding: 20px; 
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 15px 35px #00000066;
+            width: 250px; color: white;
+        }
+
+        #ui-layer #scoreDisplay {
+            font-family: 'Space Grotesk', sans-serif;
+            letter-spacing: 1px;
+        }
+
+        /*user interface button for guesssing */
+        #ui-layer button {
+            display: block; 
+            width: 100%;
+            margin-top: 10px; 
+            padding: 12px;
+            cursor: pointer; 
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            border: none; 
+            border-radius: 8px;
+            background: #358fee; 
+            color: white;
+            transition: transform 0.15s ease, filter 0.15s ease;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        /* hover effect for the user interface buttons */
+        #ui-layer button:hover {
+            filter: brightness(1.12);
+            transform: translateY(-2px);
+        }
+
+        /*leaflet popup style for when player clicks on the map to guess */
+        .leaflet-popup-content-wrapper {
+            background: #0a1e5a;
+            color: white;
+            border: 2px solid #358fee;
+            border-radius: 8px;
+        }
+        /* content of the popup.margin and font styling */
+        .leaflet-popup-content {
+            margin: 8px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* the tip of the popup, the little arrow pointing to the location on the map */
+        .leaflet-popup-tip {
+            background: #0a1e5a;
+            border: 2px solid #358fee;
+        }
+
+        /* remove the default close button from the leaflet popup since it looks out of place with our custom styling */
+        .leaflet-popup-close-button {
+            display: none;
+        }
 
 
-//map intialisation function from leaflet documentation
-//sets up the map and click event to place marker and store guess coordinates
-function initializeMap() {
-    if (typeof L === 'undefined' || !document.getElementById('map')) return;
-    
-    map = L.map('map').setView([0, 0], 1);
-
-    L.tileLayer('https://api.maptiler.com/maps/streets-v4/{z}/{x}/{y}.png?key=S8NmHw1EUy7izVqZxg2O', {
-        attribution: '&copy; MapTiler &copy; OpenStreetMap'
-    }).addTo(map);
-
-    map.on('click', async function(e) {
-        const lat = e.latlng.lat.toFixed(4);
-        const lng = e.latlng.lng.toFixed(4);
-
-        if (currentMarker) map.removeLayer(currentMarker);
         
-        currentMarker = L.marker(e.latlng).addTo(map);
-       
-        const geo = await reverseGeocodeCountry(lat, lng);
+      
+    </style>
+</head>
 
-        //lastClicked object to store the details of the player's guess, including the coordinates and country information. 
-        lastClicked = {
-            lat, lng,
-            country: geo.country,
-            country_code: geo.country_code
-        };
+<body>
+    <div id="ui-layer">
+        <div id="scoreDisplay" style="font-weight: bold; margin-bottom: 10px; color:#ffffff;">SCORE: 0 | ROUND: 0</div>
+        <div id="timerDisplay" style="font-weight: bold; margin-bottom: 10px; color:#50ff6d; font-family: 'Space Grotesk', sans-serif; font-size: 20px;">⏱ 45s</div>
+        <button onclick="revealNext()">REVEAL CLUE</button>
+        <hr style="margin: 15px 0; color:#ffffff;">
+        <div id="countryOutput" style="color: #ffffff;">Loading...</div>
+    </div>
 
-        map.panTo(e.latlng);
-        console.log("Last Clicked Country:", lastClicked.country + " (" + lastClicked.country_code + ")");
-    });
-}
+    <div id="mapGuess">
+        <div id="map"></div>
+        <button class="guessButton" onclick="AnswerChecker()">GUESS</button>
+    </div>
+   
+    <div id="mly"></div>
 
-window.onload = async () => {
-    initializeMap();
-    await initViewer();
-    updateScoreDisplay();
-    showRandomCountry(); 
+  <div id="resultModal" class="dashboard-overlay" style="display:none;">
+        <div class="dashboard-header">
+            <div class="score-pill">
+                TOTAL SCORE: <span id="modalTotalScore">0</span>
+            </div>
+        </div>
 
-};
+        <div id="modalMap"></div>
+
+        <div class="dashboard-footer">
+            <div class="stat-group">
+                <h2 id="modalDistance" class="neon-blue">0 km</h2>
+                <p>DISTANCE</p>
+            </div>
+
+            <div class="action-group" style="text-align: center;">
+                <button id="modalBtn" class="next-btn">NEXT ROUND</button>
+            </div>
+
+            <div class="stat-group">
+                <h2 id="modalPoints" class="neon-yellow">0</h2>
+                <p>POINTS EARNED</p>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="endgameModal" class="dashboard-overlay" style="display:none; justify-content: center; align-items: center;">
+        <div class="modalContent" style="background: #00000000; padding: 50px; border-radius: 30px; border: 3px solid #0a1e5a; text-align: center; box-shadow: 0 0 50px #0a1e5a88;">
+            
+            <h1 id="endgameTitle" class="neon-yellow" style="font-size: 60px; margin-bottom: 10px;">GAME COMPLETE</h1>
+            <p style="color: #ffffff; letter-spacing: 3px; font-weight: bold; margin-bottom: 30px;">RESULTS:</p>
+
+            <div style="display: flex; justify-content: space-around; margin-bottom: 40px; gap: 40px;">
+                <div class="stat-group">
+                    <h2 id="finalTotalScore" class="neon-blue" style="font-size: 50px; color: #358fee; text-shadow: 0 0 15px #358fee;">0</h2>
+                    <p>YOUR SCORE</p>
+                </div>
+                <div class="stat-group" id="opponentSection" style="display:none;">
+                    <h2 id="opponentScore" class="neon-blue" style="font-size: 50px; color: #ff3535; text-shadow: 0 0 15px #ff3535;">0</h2>
+                    <p>OPPONENT SCORE</p>
+                </div>
+            </div>
+
+            <div id="endgameMessage" style="color: white; font-size: 20px; margin-bottom: 40px; line-height: 1.6;"></div>
+
+            <button onclick="window.location.href='mainMenu.html'" class="homeBtn">
+                RETURN TO MENU
+            </button>
+        </div>
+    </div>
+
+    //scripts for map library, mapillary js and game logic js file
+    <script src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="gameLogic.js"></script>
+
+</body>
+</html>
