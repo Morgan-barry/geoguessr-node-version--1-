@@ -26,10 +26,13 @@
         /*header styling for the main title of game */
        h1 {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 110px;
+            font-size: clamp(52px, 9vw, 110px);
             font-weight: 700;
-            color: #fefeff;
             letter-spacing: 6px;
+            background: linear-gradient(180deg, #ffffff 0%, #d6e7ff 55%, #8fbdfb 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
             /* Stacked shadows to create a "thick" 3D edge */
             text-shadow: 
                 1px 1px 0px #358fee,
@@ -223,7 +226,7 @@
         </span>
     </button>
 
-    <h1>WORLD QUIZ</h1>
+    <h1>MORGAN'S GEOGUESSR GAME</h1>
 
     <div id="infoModal" class="modalOverlay" style="display:none;">
         <div class="modalContent">
