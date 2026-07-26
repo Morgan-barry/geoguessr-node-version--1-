@@ -61,6 +61,11 @@
             max-width: 90vw;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.3); 
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .CountryMatchMenuBox:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 45px #00000066, 0 0 40px #358fee55;
         }
 
         /*precision point menu box styling (same as country match but with different colors) */
@@ -74,6 +79,11 @@
             max-width: 90vw;
             text-align: center;
             border: 1px solid #ffffff4d; 
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .PrecisionMenuBox:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 45px #00000066, 0 0 40px #ffcc0055;
         }
 
         .JoinGameBox {
@@ -87,7 +97,23 @@
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.3);
             margin-top: 30px; /* Space between the rows */
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
         }
+        .JoinGameBox:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 45px #00000066, 0 0 40px #50ff6d55;
+        }
+
+        @keyframes riseFadeIn {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1, .menuContainer, .JoinGameBox {
+            animation: riseFadeIn 0.6s ease both;
+        }
+        .menuContainer { animation-delay: 0.15s; }
+        .JoinGameBox { animation-delay: 0.3s; }
 
         .JoinGameBox h3 {
             color: white;
@@ -147,14 +173,35 @@
 
         /*modal content styling for information box */
         .modalContent {
-            background: #ffffffd9;
-            backdrop-filter: blur(10px);
+            background: #0a1e5af0;
+            backdrop-filter: blur(14px);
             padding: 40px;
             border-radius: 20px;
             width: 400px;
+            max-width: 90vw;
             text-align: center;
             position: relative;
-            box-shadow: 0 5px 15px #0000004d;
+            box-shadow: 0 20px 45px #00000080;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e6e9f5;
+        }
+        .modalContent h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            color: #ffffff;
+            letter-spacing: 2px;
+        }
+        .modalContent hr {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .modalContent ul li strong {
+            color: #ffffff;
+        }
+        #closeModalBtn {
+            background: #358fee;
+            padding: 12px 28px;
+            border-radius: 8px;
+            margin-top: 10px;
         }
 
         
@@ -180,17 +227,17 @@
 
     <div id="infoModal" class="modalOverlay" style="display:none;">
         <div class="modalContent">
-            <h2 style="color: #000;">How to Play</h2>
+            <h2>How to Play</h2>
             <hr>
             <p>Welcome to <strong>World Quiz!</strong></p>
-            <ul style="text-align: left; color: #000; line-height: 1.6;">
+            <ul style="text-align: left; line-height: 1.6;">
                 <li><strong>Host:</strong> Create a room and share the 4-letter code.</li>
                 <li><strong>Join:</strong> Enter a friend's code to enter their room.</li>
                 <li><strong>Gameplay:</strong> You'll see a random street-view. Guess the location on the map.</li>
                 <li><strong>Country Match:</strong>  The fewer clues you use, the higher your score!</li>
                 <li><strong>Precision Point:</strong> Guess the exact location for maximum points! The closer you are, the more points you earn.</li>
             </ul>
-            <button id="closeModalBtn" style="background: #000; padding: 10px 20px; border-radius: 5px; margin-top: 10px;">Got it!</button>
+            <button id="closeModalBtn">Got it!</button>
         </div>
     </div>
     <div class="menuContainer">
@@ -211,9 +258,9 @@
             <i class="fa-solid fa-user" style="margin-right: 10px; "></i> HOST GAME    
             </button>
             
-            <div id="room-display" style="display:none; margin: 15px 0; font-weight: bold; color: #28a745; font-size: 18px;">
+            <div id="room-display" style="display:none; margin: 15px 0; font-weight: bold; color: #358fee; font-size: 18px;">
                 Room Code: <span id="room-code-text"></span><br>
-                <span style="font-size: 14px; color: #666; font-weight: normal;">Waiting for opponent to join...</span>
+                <span style="font-size: 14px; color: #b8c2e0; font-weight: normal;">Waiting for opponent to join...</span>
             </div>
 
            
@@ -238,9 +285,9 @@
             <i class="fa-solid fa-user" style="margin-right: 10px;"></i> HOST GAME    
             </button>
             
-            <div id="room-displayPrecision" style="display:none; margin: 15px 0; font-weight: bold; color: #28a745; font-size: 18px;">
+            <div id="room-displayPrecision" style="display:none; margin: 15px 0; font-weight: bold; color: #ffcc00; font-size: 18px;">
                 Room Code: <span id="room-code-textPrecision"></span><br>
-                <span style="font-size: 14px; color: #666; font-weight: normal;">Waiting for opponent to join...</span>
+                <span style="font-size: 14px; color: #b8c2e0; font-weight: normal;">Waiting for opponent to join...</span>
             </div>
 
             
