@@ -3,15 +3,19 @@
 <head>
     <title>World Quiz Main Menu</title>
     <style>
-        /* Full-screen background image with a dark overlay for better text visibility */
         body { 
-            background-image: 
-                linear-gradient(180deg, rgba(4,8,22,0.25) 0%, rgba(4,8,22,0.35) 60%, rgba(4,8,22,0.5) 100%),
-                url(bg.jpg); 
-            background-repeat: no-repeat; 
-            background-position: center; 
-            background-attachment: fixed; 
-            background-size: cover; 
+            background: 
+                radial-gradient(1px 1px at 12% 22%, rgba(255,255,255,0.9), transparent 60%),
+                radial-gradient(1px 1px at 78% 68%, rgba(255,255,255,0.75), transparent 60%),
+                radial-gradient(1.5px 1.5px at 40% 82%, rgba(255,255,255,0.65), transparent 60%),
+                radial-gradient(1.5px 1.5px at 88% 18%, rgba(255,255,255,0.8), transparent 60%),
+                radial-gradient(1px 1px at 8% 92%, rgba(255,255,255,0.55), transparent 60%),
+                radial-gradient(1px 1px at 55% 12%, rgba(255,255,255,0.6), transparent 60%),
+                radial-gradient(1.5px 1.5px at 92% 88%, rgba(255,255,255,0.7), transparent 60%),
+                radial-gradient(ellipse at 50% 15%, #142a52 0%, #05060f 70%);
+            background-repeat: repeat;
+            background-size: 260px 260px;
+            background-attachment: fixed;
             margin: 0; 
             display: flex; 
             flex-direction: column; 
@@ -23,12 +27,31 @@
             box-sizing: border-box;
         }
 
+        .titleWrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .globeEmblem {
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            object-fit: cover;
+            filter: drop-shadow(0 0 45px rgba(53,143,238,0.6));
+            opacity: 0.85;
+            z-index: 0;
+            pointer-events: none;
+        }
+
         /*header styling for the main title of game */
        h1 {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: clamp(52px, 9vw, 110px);
+            font-size: clamp(40px, 6.5vw, 84px);
             font-weight: 700;
-            letter-spacing: 6px;
+            letter-spacing: 4px;
             background: linear-gradient(180deg, #ffffff 0%, #d6e7ff 55%, #8fbdfb 100%);
             -webkit-background-clip: text;
             background-clip: text;
@@ -41,6 +64,8 @@
                 4px 4px 24px rgba(0,0,0,0.85);
             margin: 0 0 40px 0;
             text-align: center;
+            position: relative;
+            z-index: 1;
         }
 
         /* container for the two game mode boxes, uses flexbox to position them side by side with some gap */
@@ -112,7 +137,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        h1, .menuContainer, .JoinGameBox {
+        h1, .titleWrap, .menuContainer, .JoinGameBox {
             animation: riseFadeIn 0.6s ease both;
         }
         .menuContainer { animation-delay: 0.15s; }
@@ -226,7 +251,10 @@
         </span>
     </button>
 
-    <h1>MORGAN'S GEOGUESSR GAME</h1>
+    <div class="titleWrap">
+        <img src="bg.jpg" alt="" class="globeEmblem">
+        <h1>WORLD QUIZ</h1>
+    </div>
 
     <div id="infoModal" class="modalOverlay" style="display:none;">
         <div class="modalContent">
