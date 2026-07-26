@@ -5,7 +5,9 @@
     <style>
         /* Full-screen background image with a dark overlay for better text visibility */
         body { 
-            background-image: url(bg.jpg); 
+            background-image: 
+                linear-gradient(180deg, rgba(4,8,22,0.55) 0%, rgba(4,8,22,0.75) 60%, rgba(4,8,22,0.9) 100%),
+                url(bg.jpg); 
             background-repeat: no-repeat; 
             background-position: center; 
             background-attachment: fixed; 
@@ -15,31 +17,37 @@
             flex-direction: column; 
             align-items: center; 
             justify-content: center; 
-            height: 100vh; 
-            font-family: sans-serif; 
+            min-height: 100vh; 
+            font-family: 'Inter', sans-serif; 
+            padding: 40px 20px;
+            box-sizing: border-box;
         }
 
         /*header styling for the main title of game */
        h1 {
-            font-size: 130px;
-            font-weight: 800;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 110px;
+            font-weight: 700;
             color: #fefeff;
-            letter-spacing: 5px;
+            letter-spacing: 6px;
             /* Stacked shadows to create a "thick" 3D edge */
             text-shadow: 
                 1px 1px 0px #358fee,
                 2px 2px 0px #358fee,
                 3px 3px 0px #358fee,
-                4px 4px 20px rgba(0,0,0,0.8);
-            margin-bottom: 30px;
+                4px 4px 24px rgba(0,0,0,0.85);
+            margin: 0 0 40px 0;
+            text-align: center;
         }
 
         /* container for the two game mode boxes, uses flexbox to position them side by side with some gap */
         .menuContainer {
             display: flex;
             flex-direction: row;
+            flex-wrap: wrap;
             gap: 30px;
             align-items: flex-start;
+            justify-content: center;
         }
 
         /*country match menu box styling */
@@ -50,6 +58,7 @@
             border-radius: 20px;
             box-shadow: 0 15px 35px #00000066;
             width: 400px;
+            max-width: 90vw;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.3); 
         }
@@ -62,6 +71,7 @@
             border-radius: 20px;
             box-shadow: 0 15px 35px #00000066;
             width: 400px;
+            max-width: 90vw;
             text-align: center;
             border: 1px solid #ffffff4d; 
         }
@@ -73,6 +83,7 @@
             border-radius: 20px;
             box-shadow: 0 15px 35px #00000066;
             width: 830px; /* Matches the width of the top row */
+            max-width: 90vw;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.3);
             margin-top: 30px; /* Space between the rows */
@@ -88,12 +99,36 @@
 
         /*button styling for all buttons in the menu*/
         button { 
-            cursor: pointer; color: white; border: none; font-weight: bold ; 
-         }
+            cursor: pointer; color: white; border: none; font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        button:hover {
+            filter: brightness(1.12);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0px);
+            filter: brightness(0.95);
+        }
 
          /*info button styling for info icon on top right */
         #infoButton {  
-            color:#ffffff; background: transparent; position: absolute; top: 20px; right: 20px; font-size: 48px !important;
+            color:#ffffff; background: transparent; position: absolute; top: 20px; right: 20px; font-size: 40px !important;
+            border-radius: 50%;
+            width: 56px; height: 56px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #infoButton:hover {
+            background: rgba(255,255,255,0.12);
+            transform: none;
+        }
+
+        .menuContainer h2, .JoinGameBox h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            letter-spacing: 2px;
         }
 
         /*modal styling for information box */
@@ -129,6 +164,9 @@
     </style>
     <!--for info icon on top rights-->
      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=info" />
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
 
@@ -138,7 +176,7 @@
         </span>
     </button>
 
-    <h1 style="font-size: 130px; color: #fefeff; margin-bottom: 30px;">WORLD QUIZ</h1>
+    <h1>WORLD QUIZ</h1>
 
     <div id="infoModal" class="modalOverlay" style="display:none;">
         <div class="modalContent">
