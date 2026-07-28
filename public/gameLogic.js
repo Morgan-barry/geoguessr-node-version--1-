@@ -1,7 +1,5 @@
 // Global Variables
-//api token - fetched from the server at runtime instead of hardcoded here,
-//so it's not committed to source control. Server reads it from an
-//environment variable (see server.js /api/mapillary-config route).
+//api token - fetched from the server at runtime 
 let MAPILLARY_TOKEN = null;
 
 async function loadMapillaryToken() {
@@ -153,7 +151,7 @@ function updateScoreDisplay() {
 // Round timer - client-side only, not synced between players in multiplayer.
 // If time runs out: submits whatever guess is already placed on the map,
 // or scores 0 for the round if no guess was made at all.
-const ROUND_TIME_SECONDS = 45;
+const ROUND_TIME_SECONDS = 90;
 let timeRemaining = ROUND_TIME_SECONDS;
 let roundTimerInterval = null;
 

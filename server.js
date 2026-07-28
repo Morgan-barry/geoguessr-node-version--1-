@@ -34,7 +34,6 @@ db.exec(`
 // Serve the static frontend (html/js) from /public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ---- helpers -------------------------------------------------------------
 
 function getRandomLocations(count) {
   const stmt = db.prepare('SELECT mapillary_id FROM locations ORDER BY RANDOM() LIMIT ?');
@@ -59,9 +58,8 @@ function generateRoomCode() {
   return code;
 }
 
-// ---- routes (mirrors the original PHP endpoints) --------------------------
 
-// was createRoom.php
+//createRoom
 app.get('/createRoom', (req, res) => {
   try {
     const roomCode = generateRoomCode();
@@ -82,7 +80,7 @@ app.get('/createRoom', (req, res) => {
   }
 });
 
-// was joinRoom.php
+// joinRoom
 app.get('/joinRoom', (req, res) => {
   const code = req.query.code;
   if (!code) {
@@ -100,7 +98,7 @@ app.get('/joinRoom', (req, res) => {
   res.json({ success: true, room_code: roomCode });
 });
 
-// was checkStatus.php
+// checkStatus
 app.get('/checkStatus', (req, res) => {
   const code = req.query.code;
   if (!code) {
@@ -117,7 +115,7 @@ app.get('/checkStatus', (req, res) => {
   res.json(roomToJson(row));
 });
 
-// was submitGuess.php
+// submitGuess
 app.get('/submitGuess', (req, res) => {
   const roomCode = String(req.query.code || '').toUpperCase();
   const playerNum = req.query.player; // "1" or "2"

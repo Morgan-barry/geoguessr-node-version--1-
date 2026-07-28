@@ -1,59 +1,39 @@
-# GeoGuessr Clone — Node.js version
+World Quiz
 
-This is a Node/Express port of the original PHP backend. Same game logic,
-same client-side files (`mainMenu.html`, `gameLayout.html`, `miner.html`,
-`MainMenu.js`, `gameLogic.js`) — only the server changed.
+A browser-based geography guessing game inspired by GeoGuessr, built as a COMP 390 project. Players are dropped into a real-world 360° street-level photo and have to figure out where in the world they are — either by guessing the exact spot on a map, or by narrowing down the country using a set of progressively revealed clues.
 
-## What changed from the PHP version
+Game Modes
+Precision Point — Guess the exact location on the map. Score is based on how close your guess is to the real spot (closer = more points, up to 5000 per round).
+Country Match — Guess the correct country. You start with no clues; each clue you reveal (region, population, capital, flag) costs you points, so the fewer clues you need, the higher your score.
 
-- `createRoom.php`, `joinRoom.php`, `checkStatus.php`, `submitGuess.php`,
-  `SinglePlayerRandomLocation.php` → now routes inside `server.js`
-  (`/createRoom`, `/joinRoom`, `/checkStatus`, `/submitGuess`,
-  `/SinglePlayerRandomLocation`).
-- Room state used to live in `room_XXXX.json` files. It's now a `rooms`
-  table inside `geoguessr.db` (the same SQLite file your locations already
-  live in), created automatically the first time the server starts.
-- Uses Node's **built-in** `node:sqlite` module — no native compiling, no
-  extra install step for the database driver.
+Both modes support:
 
-## Before you run it
+Single player — play solo, 5 rounds per game.
+Multiplayer (1v1) — host a room, share the 4-letter code with a friend, and compete over the same 5 rounds. Scores are tracked and compared at the end.
 
-You need a `geoguessr.db` SQLite file in the project root with a
-`locations` table containing a `mapillary_id` column, exactly like the PHP
-version needed. It is **not** included here — copy your existing one over,
-or recreate it with your location data.
+Every round also runs on a 45-second timer — if time runs out, whatever guess is currently placed on the map gets submitted automatically, or the round scores 0 if no guess was made at all.
 
-## Running locally
+Tech Stack
 
-```bash
-npm install
-npm start
-```
+Backend
 
-Requires **Node.js 22.5 or newer** (for `node:sqlite`). Check with `node -v`.
-If your host only offers an older Node version, let me know and I'll swap
-the database layer to `better-sqlite3` instead (a package install, same
-API, works on Node 18+).
+Node.js + Express — serves the frontend and handles all game logic via a small set of API routes (create/join rooms, check room status, submit guesses, fetch random locations).
+SQLite via Node's built-in node:sqlite module — stores the pool of playable locations and live multiplayer room state (scores, round number, guessed flags). No native module compilation required, since node:sqlite ships with Node itself (v22.5+).
 
-Once running, open `http://localhost:3000/mainMenu.html`.
+External APIs
 
-## Deploying for free
+Mapillary — provides the 360° street-level photos. The MapillaryJS Viewer SDK renders the interactive panorama in the browser, and the Graph API supplies each photo's real-world coordinates (fetched through a server-side proxy so the lookup token never reaches the client).
+REST Countries (v5) — supplies country clue data (region, population, capital, flag) for Country Match mode, called through a server-side proxy to keep the API key off the client.
 
-Because this no longer needs PHP, you have more free-hosting options than
-before. A few solid ones:
+Frontend
 
-- **Render** (free web service) — connect your GitHub repo, set the start
-  command to `npm start`, done. Free tier spins the app down after
-  inactivity and spins back up on the next request (a few seconds delay),
-  and the disk is ephemeral — fine for a class demo, just know a restart
-  clears the `rooms` table (your `locations` table would need to be
-  re-seeded too unless you commit `geoguessr.db` to the repo).
-- **Fly.io** — free allowance, supports a small persistent volume if you
-  want room/location data to actually survive restarts.
-- **Cyclic / Glitch** — also Node-friendly, good for quick demos.
+Vanilla HTML/CSS/JavaScript — no framework, no build step.
+Leaflet.js — powers the interactive maps used for placing guesses and for the post-round result recap (showing the guess vs. the actual location).
+Sound effects are synthesized directly in the browser using the Web Audio API — no external audio files to host or license.
 
-Whichever you pick, the steps are basically: push this folder to GitHub,
-connect the repo, set the start command to `npm start`, and make sure
-`geoguessr.db` is either committed to the repo or uploaded separately.
+Hosting
 
-Want me to walk through one of these end-to-end?
+Deployed on Render's free tier. Environment variables (MAPILLARY_TOKEN, REST_COUNTRIES_TOKEN) hold the API keys server-side and are never committed to source control
+Known Limitations
+The round timer runs independently on each player's device in multiplayer rather than being synchronized through the server, so timers may drift slightly between players (e.g. due to network lag). Both players' guesses are still scored and recorded correctly regardless.
+Multiplayer currently supports exactly 2 players per room.
