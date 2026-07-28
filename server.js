@@ -17,11 +17,12 @@ const PORT = process.env.PORT || 3000;
 const db = new DatabaseSync(path.join(__dirname, 'geoguessr.db'));
 
 // Create the rooms table if it doesn't exist yet (rooms used to be JSON files;
-// now they're rows in the same SQLite file as your locations).
+// now they're rows in the same SQLite file as locations).
 db.exec(`
   CREATE TABLE IF NOT EXISTS rooms (
     room_code TEXT PRIMARY KEY,
     round INTEGER NOT NULL DEFAULT 1,
+    round_started_at INTEGER NOT NULL DEFAULT 0,
     locations TEXT NOT NULL,
     player1_score INTEGER NOT NULL DEFAULT 0,
     player1_guessed INTEGER NOT NULL DEFAULT 0,
@@ -35,6 +36,7 @@ db.exec(`
 app.use(express.static(path.join(__dirname, 'public')));
 
 
+
 function getRandomLocations(count) {
   const stmt = db.prepare('SELECT mapillary_id FROM locations ORDER BY RANDOM() LIMIT ?');
   return stmt.all(count).map(row => row.mapillary_id);
@@ -44,6 +46,7 @@ function roomToJson(row) {
   return {
     room_code: row.room_code,
     round: row.round,
+    round_started_at: row.round_started_at,
     locations: JSON.parse(row.locations),
     player1: { score: row.player1_score, guessed: !!row.player1_guessed },
     player2: { score: row.player2_score, guessed: !!row.player2_guessed },
@@ -58,8 +61,9 @@ function generateRoomCode() {
   return code;
 }
 
+// ---- routes (mirrors the original PHP endpoints) --------------------------
 
-//createRoom
+// was createRoom
 app.get('/createRoom', (req, res) => {
   try {
     const roomCode = generateRoomCode();
@@ -70,9 +74,9 @@ app.get('/createRoom', (req, res) => {
     }
 
     db.prepare(`
-      INSERT INTO rooms (room_code, round, locations, player1_score, player1_guessed, player2_score, player2_guessed, player2_joined)
-      VALUES (?, 1, ?, 0, 0, 0, 0, 0)
-    `).run(roomCode, JSON.stringify(locations));
+      INSERT INTO rooms (room_code, round, round_started_at, locations, player1_score, player1_guessed, player2_score, player2_guessed, player2_joined)
+      VALUES (?, 1, ?, ?, 0, 0, 0, 0, 0)
+    `).run(roomCode, Date.now(), JSON.stringify(locations));
 
     res.json({ success: true, room_code: roomCode });
   } catch (err) {
@@ -80,7 +84,7 @@ app.get('/createRoom', (req, res) => {
   }
 });
 
-// joinRoom
+// was joinRoom
 app.get('/joinRoom', (req, res) => {
   const code = req.query.code;
   if (!code) {
@@ -98,7 +102,7 @@ app.get('/joinRoom', (req, res) => {
   res.json({ success: true, room_code: roomCode });
 });
 
-// checkStatus
+// was checkStatus
 app.get('/checkStatus', (req, res) => {
   const code = req.query.code;
   if (!code) {
@@ -115,7 +119,7 @@ app.get('/checkStatus', (req, res) => {
   res.json(roomToJson(row));
 });
 
-// submitGuess
+// was submitGuess
 app.get('/submitGuess', (req, res) => {
   const roomCode = String(req.query.code || '').toUpperCase();
   const playerNum = req.query.player; // "1" or "2"
@@ -137,8 +141,8 @@ app.get('/submitGuess', (req, res) => {
 
   if (updated.player1_guessed && updated.player2_guessed) {
     round += 1;
-    db.prepare('UPDATE rooms SET round = ?, player1_guessed = 0, player2_guessed = 0 WHERE room_code = ?')
-      .run(round, roomCode);
+    db.prepare('UPDATE rooms SET round = ?, round_started_at = ?, player1_guessed = 0, player2_guessed = 0 WHERE room_code = ?')
+      .run(round, Date.now(), roomCode);
   }
 
   res.json({ success: true, current_round: round });
@@ -158,8 +162,7 @@ app.get('/SinglePlayerRandomLocation', (req, res) => {
   }
 });
 
-// Server-side proxy for the computed_geometry lookup — the token used here
-// never gets sent to the browser, unlike the Viewer's token below.
+// Server-side proxy for the computed_geometry lookup 
 app.get('/api/location-geometry', async (req, res) => {
   const imageId = req.query.id;
   if (!imageId) {

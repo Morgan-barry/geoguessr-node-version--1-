@@ -1,5 +1,7 @@
 // Global Variables
-//api token - fetched from the server at runtime 
+//api token - fetched from the server at runtime instead of hardcoded here,
+//so it's not committed to source control. Server reads it from an
+//environment variable (see server.js /api/mapillary-config route).
 let MAPILLARY_TOKEN = null;
 
 async function loadMapillaryToken() {
@@ -151,9 +153,15 @@ function updateScoreDisplay() {
 // Round timer - client-side only, not synced between players in multiplayer.
 // If time runs out: submits whatever guess is already placed on the map,
 // or scores 0 for the round if no guess was made at all.
-const ROUND_TIME_SECONDS = 90;
+// Round timer - in single player this just counts down locally. In
+// multiplayer, it's anchored to round_started_at (a timestamp the server
+// stamps every time a round begins), so both players' timers stay in sync
+// with each other and with the server's own understanding of the round,
+// instead of each player just running their own independent 45s countdown.
+const ROUND_TIME_SECONDS = 45;
 let timeRemaining = ROUND_TIME_SECONDS;
 let roundTimerInterval = null;
+let roundAnchorTime = null; // server timestamp (ms) the current round started, or null in single player
 
 function clearRoundTimer() {
     if (roundTimerInterval) {
@@ -169,12 +177,24 @@ function updateTimerDisplay() {
     el.style.color = timeRemaining <= 10 ? "#ff5050" : "#50ff6d";
 }
 
-function startRoundTimer() {
+function computeTimeRemaining() {
+    if (roundAnchorTime) {
+        const elapsedSeconds = Math.floor((Date.now() - roundAnchorTime) / 1000);
+        return Math.max(0, ROUND_TIME_SECONDS - elapsedSeconds);
+    }
+    return Math.max(0, timeRemaining - 1);
+}
+
+function startRoundTimer(serverStartTimestamp = null) {
     clearRoundTimer();
-    timeRemaining = ROUND_TIME_SECONDS;
+    roundAnchorTime = serverStartTimestamp || null;
+    timeRemaining = roundAnchorTime ? computeTimeRemaining() : ROUND_TIME_SECONDS;
     updateTimerDisplay();
+
+    // If a laggy join means most of the round is already gone, just let it play out -
+    // don't instantly force a timeout, since handleTimeUp already handles the 0 case cleanly.
     roundTimerInterval = setInterval(() => {
-        timeRemaining--;
+        timeRemaining = computeTimeRemaining();
         updateTimerDisplay();
         if (timeRemaining > 0 && timeRemaining <= 3) {
             playTickSound();
@@ -255,6 +275,7 @@ async function showRandomCountry() {
     // Get the next Mapillary location based on game mode and round number
     const output = document.getElementById("countryOutput");
     let targetMapillaryId;
+    let serverRoundStartedAt = null; // only set in multiplayer - used to sync the round timer between players
 
     try {
         // if statement to see if its multiplayer
@@ -266,6 +287,7 @@ async function showRandomCountry() {
             // Get the specific mapillary ID for the curreent round
             const currentRoundIndex = roomData.round - 1;
             targetMapillaryId = roomData.locations[currentRoundIndex];
+            serverRoundStartedAt = roomData.round_started_at;
             console.log("Loading location:", targetMapillaryId);
             //if its single player we use singleplayerlocationphp to get a list of 5 random mapillary ids
             // and use the singleplayerlocationlist to store the countries
@@ -329,7 +351,7 @@ async function showRandomCountry() {
         
         RevealClueIndex = -1;
         output.innerHTML = "<strong>Round Started!</strong>";
-        startRoundTimer();
+        startRoundTimer(serverRoundStartedAt);
     
     } catch (error) {
         console.error("Error setting up the round:", error);
