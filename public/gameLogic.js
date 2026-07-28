@@ -381,7 +381,7 @@ function showCustomModal(callback, coords = null, distance = 0, points = 0) {
         // Initialize the modal map if it doesn't exist, or clear existing markers and lines if it does
         if (!modalMap) {
             modalMap = L.map('modalMap', { attributionControl: false, zoomControl: false }).setView([0, 0], 2);
-            L.tileLayer('https://api.maptiler.com/maps/streets-v4/{z}/{x}/{y}.png?key=S8NmHw1EUy7izVqZxg2O').addTo(modalMap);
+            L.tileLayer('https://api.maptiler.com/maps/base-v4/{z}/{x}/{y}.png?key=S8NmHw1EUy7izVqZxg2O').addTo(modalMap);
         }
         // Clear previous markers and lines from the modal map
         modalMap.eachLayer(l => { if (l instanceof L.Marker || l instanceof L.Polyline || l instanceof L.Popup) modalMap.removeLayer(l); });
