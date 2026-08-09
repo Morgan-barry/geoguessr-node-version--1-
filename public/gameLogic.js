@@ -253,6 +253,7 @@ async function reverseGeocodeCountry(lat, lon) {
 
 // Main function to start a round by showing a random Mapillary location and setting up the clues
 async function showRandomCountry() {
+    initializeMap();
 
     clearRoundTimer();
 

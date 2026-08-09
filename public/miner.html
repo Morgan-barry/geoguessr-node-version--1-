@@ -35,6 +35,7 @@
                     // Log the country being checked
                     console.log(`Checking ${c.name.common} at (${lat.toFixed(4)}, ${lon.toFixed(4)})`);
 
+                    //CALLS FUNCTION WITH COORDINATE INPUTS (LINE 64)
                     // Fetch Mapillary image ID for the location
                     const id = await fetchMapillary(lat, lon);
                     
