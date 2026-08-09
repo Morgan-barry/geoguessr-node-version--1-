@@ -150,6 +150,25 @@ function updateScoreDisplay() {
     document.getElementById("scoreDisplay").innerText = `Score: ${playerScore} | Round: ${roundNumber}`;
 }
 
+function resetRoundMap() {
+    if (!map) return;
+
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+        currentMarker = null;
+    }
+
+    if (answerLine && map.hasLayer(answerLine)) {
+        map.removeLayer(answerLine);
+        answerLine = null;
+    }
+
+    lastClicked = null;
+    map.closePopup();
+    map.setView([0, 0], 1);
+    map.invalidateSize();
+}
+
 // Round timer - client-side only, not synced between players in multiplayer.
 // If time runs out: submits whatever guess is already placed on the map,
 // or scores 0 for the round if no guess was made at all.
@@ -253,25 +272,9 @@ async function reverseGeocodeCountry(lat, lon) {
 
 // Main function to start a round by showing a random Mapillary location and setting up the clues
 async function showRandomCountry() {
-    initializeMap();
 
     clearRoundTimer();
-
-    // Clean up previous round answer line
-    if (answerLine) {
-            map.removeLayer(answerLine);
-            answerLine = null;
-        }
-
-    //clean up previous round marker and last clicked data
-    lastClicked = null;
-
-     if (currentMarker) {
-            map.removeLayer(currentMarker);
-            currentMarker = null;
-        }
-
-    
+    resetRoundMap();
 
     // Get the next Mapillary location based on game mode and round number
     const output = document.getElementById("countryOutput");
