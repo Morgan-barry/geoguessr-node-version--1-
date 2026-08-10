@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-    
-    // the links below are for the map and street view libraries we use, leaflet and mapillary js
+
+    <!-- map and street view libraries: leaflet and mapillary js -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <link href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css" rel="stylesheet" />
-    
+
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        
+
         /* body style removes default margin and hides scrollbars, also sets a dark background and a clean sans-serif font */
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            font-family: 'Inter', sans-serif; 
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
         }
 
 
@@ -30,7 +30,7 @@
 
         /* modal map to show players guess */
         #modalMap {
-            flex-grow: 1; 
+            flex-grow: 1;
             width: 100%;
         }
 
@@ -52,12 +52,12 @@
         }
 
         /* score pill in the dashboard header */
-        .score-pill { 
-            background: transparent; 
-            padding: 10px 25px; 
-            border-radius: 8px; 
-            border: 2px solid #358fee; 
-            color: white; 
+        .score-pill {
+            background: transparent;
+            padding: 10px 25px;
+            border-radius: 8px;
+            border: 2px solid #358fee;
+            color: white;
             font-family: 'Space Grotesk', sans-serif;
             font-weight: bold;
             letter-spacing: 1px;
@@ -66,33 +66,33 @@
 
 
         /* neon text styles for distance and points in the dashboard footer */
-        .neon-blue { 
-            color: #358fee; 
+        .neon-blue {
+            color: #358fee;
             text-shadow: 0 0 15px #358fee4d;
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 45px; 
-            margin: 0; 
+            font-size: 45px;
+            margin: 0;
         }
 
 
-        .neon-yellow { color: #ffcc00; 
-            text-shadow: 0 0 15px #ffcc004d; 
+        .neon-yellow { color: #ffcc00;
+            text-shadow: 0 0 15px #ffcc004d;
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 45px; 
-            margin: 0; 
+            font-size: 45px;
+            margin: 0;
         }
 
 
         /* stat group used for distance and points sections in the dashboard footer */
-        .stat-group { 
-            text-align: center; 
+        .stat-group {
+            text-align: center;
         }
 
         /* style for the labels under distance and points in the dashboard footer */
-        .stat-group p { color: #888; 
-            margin-top: 5px; 
-            letter-spacing: 2px; 
-            font-size: 12px; 
+        .stat-group p { color: #888;
+            margin-top: 5px;
+            letter-spacing: 2px;
+            font-size: 12px;
         }
 
         /* next button style */
@@ -110,9 +110,9 @@
         }
 
         /* next button hover effect */
-        .next-btn:hover { 
-            transform: scale(1.05); 
-            background: #7cff93; 
+        .next-btn:hover {
+            transform: scale(1.05);
+            background: #7cff93;
         }
 
         /*home button style, used on endgame modal to return to main menu */
@@ -128,29 +128,29 @@
             box-shadow: 0 0 20px #3e68e688;
             transition: 0.2s;
         }
-        
+
         /* home button hover effect */
-        .homeBtn:hover { 
-            transform: scale(1.05); 
-            background: #266db3; 
+        .homeBtn:hover {
+            transform: scale(1.05);
+            background: #266db3;
         }
-        
-        
+
+
 
         /* mly is the mapillary street container. fills the screen and is behind everything */
         #mly {
-             position: absolute; 
-             top: 0; 
-             left: 0; 
-             width: 100vw; 
-             height: 100vh; 
-             z-index: 0; 
+             position: absolute;
+             top: 0;
+             left: 0;
+             width: 100vw;
+             height: 100vh;
+             z-index: 0;
             }
 
         /* Container for the map and guess button - handles the popout*/
         #mapGuess {
             position: fixed;
-            bottom: 20px; 
+            bottom: 20px;
             left: 20px;
             height: 500px; /* Base height when not hovering */
             width: 700px; /* This is the base width when not hovering */
@@ -160,7 +160,7 @@
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 15px 35px #00000066;
-            
+
             /* Anchor growth to the bottom right so it stretches to the center */
             transform-origin: bottom left;
             transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s ease;
@@ -175,24 +175,24 @@
         /* Map fills the top of the container */
         #map {
             flex-grow: 1;
-            width: 100%; 
+            width: 100%;
             height: 250px; /* Base height when not hovering */
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-bottom: none; 
+            border-bottom: none;
             background: white; /* Prevents seeing through the map while loading */
         }
 
         /* Guess button fills the bottom of the container, matching the map width exactly */
         .guessButton {
-            width: 100%; 
+            width: 100%;
             padding: 14px;
-            background: #358fee; 
+            background: #358fee;
             color: white;
             font-family: 'Inter', sans-serif;
-            font-size: 18px; 
+            font-size: 18px;
             font-weight: bold;
-            border: 1px solid rgba(255, 255, 255, 0.3); 
-            cursor: pointer; 
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
             letter-spacing: 2px;
             text-transform: uppercase;
             transition: filter 0.15s ease;
@@ -209,7 +209,7 @@
             z-index: 1000;
             background: #0a1e5ad9;
             backdrop-filter: blur(10px);
-            padding: 20px; 
+            padding: 20px;
             border-radius: 16px;
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 15px 35px #00000066;
@@ -223,16 +223,16 @@
 
         /*user interface button for guesssing */
         #ui-layer button {
-            display: block; 
+            display: block;
             width: 100%;
-            margin-top: 10px; 
+            margin-top: 10px;
             padding: 12px;
-            cursor: pointer; 
+            cursor: pointer;
             font-weight: bold;
             font-family: 'Inter', sans-serif;
-            border: none; 
+            border: none;
             border-radius: 8px;
-            background: #358fee; 
+            background: #358fee;
             color: white;
             transition: transform 0.15s ease, filter 0.15s ease;
             font-size: 14px;
@@ -272,8 +272,7 @@
         }
 
 
-        
-      
+
     </style>
 </head>
 
@@ -290,7 +289,7 @@
         <div id="map"></div>
         <button class="guessButton" onclick="AnswerChecker()">GUESS</button>
     </div>
-   
+
     <div id="mly"></div>
 
   <div id="resultModal" class="dashboard-overlay" style="display:none;">
@@ -322,7 +321,7 @@
 
     <div id="endgameModal" class="dashboard-overlay" style="display:none; justify-content: center; align-items: center;">
         <div class="modalContent" style="background: #00000000; padding: 50px; border-radius: 30px; border: 3px solid #0a1e5a; text-align: center; box-shadow: 0 0 50px #0a1e5a88;">
-            
+
             <h1 id="endgameTitle" class="neon-yellow" style="font-size: 60px; margin-bottom: 10px;">GAME COMPLETE</h1>
             <p style="color: #ffffff; letter-spacing: 3px; font-weight: bold; margin-bottom: 30px;">RESULTS:</p>
 
@@ -345,10 +344,25 @@
         </div>
     </div>
 
-    //scripts for map library, mapillary js and game logic js file
+    <!-- external libraries: mapillary js and leaflet -->
     <script src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="gameLogic.js"></script>
+
+    <!--
+        our game logic, split into modules. ORDER MATTERS:
+        state.js must load first since it declares the shared globals
+        every other file reads/writes. game.js and main.js go last since
+        they call functions defined in the files above them.
+    -->
+    <script src="js/state.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/geo.js"></script>
+    <script src="js/mapillary.js"></script>
+    <script src="js/timer.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
 
 </body>
 </html>
